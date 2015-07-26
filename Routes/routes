@@ -1,0 +1,124 @@
+var express = require('express');
+var router = express.Router();
+var passport = require('passport');
+var LocalStrategy = require('passport-local').Strategy;
+var FBStrategy = require('passport-facebook').Strategy;
+var path = require('path');
+
+// MODELS
+var models = require('../Database/models')
+
+// COLLECTIONS
+var collections = require('../Database/collections');
+
+//PASSPORT set up
+passport.use(new LocalStrategy(function(username, password, done){
+	models.User.forge({email: username})
+	.fetch()
+	.then(function (user) {
+		if (!user) {
+			console.log("Error: user not found")
+			return done(null, false, { message: "Error: user not found" });
+		} else if (password != user.get('password')) {
+			console.log("is: " + password + " should be: " + user.get('password'));
+			console.log("Error: incorrect password");
+			return done(null, false, { message: "Error: incorrect password" });
+		} else {
+			var email = user.get('email');
+			console.log(email + " has logged in")
+			return done(null, user,  { message: email + " has logged in" });
+		}
+	});
+	.catch( function(err) {
+		if (err) {
+			console.log("Error: Database query failed");
+			return done(null);
+		}
+	});
+}));
+
+passport.serializeUser(function(user, done) {
+	console.log("serialized");
+	done(null, user.id);
+});
+
+passport.deserializeUser(function(id, done) {
+	models.User.forge({id: id})
+	.fetch()
+	.then(function(user){
+		done(null, user);
+	})
+	.catch(function(err){
+		done(err);
+	})
+});
+
+
+exports.passport = passport;
+
+//ROUTES
+router.get('/', function(request,response) {
+	if (request.user){
+		response.json(request.user.get('email') + " is signed in");
+	} else {
+		collections.Users.forge()
+		.fetch()
+		.then (function (users) {
+			response.status(200).json(users);
+		})
+		.catch(function () {
+			response.status(400).json("ERROR: can't find users");
+		});
+	}
+})
+
+router.post('/login', passport.authenticate('local', { failureRedirect: '/sign_in' }), function(request, reponse) {
+	reponse.json(request.user.get('email') + " has logged in");
+});
+
+router.get('/login', function(request, response) {
+	response.sendFile(path.join(__dirname, '../', 'public/index.html'));
+});
+
+router.get('/sign_in', function(request, response) {
+	response.sendFile(path.join(__dirname, '../', 'public/index.html'));
+});
+router.post('/sign_in', function(request,response) {
+	if (!request.body.email) {
+		response.status(400).json("Please enter an email");
+	} else if (!request.body.password){
+		response.status(400).json("Please enter a password");
+	} else {
+		models.User.forge({email: request.body.email})
+		.fetch()
+		.then(function (user) {
+			if (user) {
+				response.status(400).json(user + "User name already exists");
+			} else {
+				var newUser = new models.User({
+					email: request.body.email,
+					password: request.body.password
+				});
+				newUser.save();
+				str = "username: " + newUser.get('email') + " password: " + newUser.get('password');
+				response.status(201).json(str);
+			}
+		})
+		.catch(function(err) {
+			console.log("ERROR: something with finding users");
+		});
+	}
+});
+
+router.get('/logout', function(request, response) {
+	email = request.user.get('email');
+	request.logout();
+	response.json(email + " has signing out");
+})
+
+//HOLY SHIT BE CAREFUL MAN - DELETE THIS OR ENSURE PROPER SECURITY IS IMPLEMENTED BEFORE RELEASE
+router.post('/cleardb', function(request, response) {
+
+})
+
+exports.router = router;
