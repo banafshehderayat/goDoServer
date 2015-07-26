@@ -20,12 +20,10 @@ passport.use(new LocalStrategy(function(username, password, done){
 			console.log("Error: user not found")
 			return done(null, false, { message: "Error: user not found" });
 		} else if (password != user.get('password')) {
-			console.log("is: " + password + " should be: " + user.get('password'));
 			console.log("Error: incorrect password");
 			return done(null, false, { message: "Error: incorrect password" });
 		} else {
 			var email = user.get('email');
-			console.log(email + " has logged in")
 			return done(null, user,  { message: email + " has logged in" });
 		}
 	})
@@ -38,7 +36,6 @@ passport.use(new LocalStrategy(function(username, password, done){
 }));
 
 passport.serializeUser(function(user, done) {
-	console.log("serialized");
 	done(null, user.id);
 });
 
@@ -56,7 +53,7 @@ passport.deserializeUser(function(id, done) {
 
 exports.passport = passport;
 
-//ROUTES
+//ROUTES - FIX LATER
 router.get('/', function(request,response) {
 	if (request.user){
 		response.json(request.user.get('email') + " is signed in");
@@ -67,7 +64,8 @@ router.get('/', function(request,response) {
 			response.status(200).json(users);
 		})
 		.catch(function () {
-			response.status(400).json("ERROR: can't find users");
+			response.status(400)
+			.json("ERROR: can't find users");
 		});
 	}
 })
@@ -79,15 +77,18 @@ router.route('/sign_in')
 	})
 	.post(function(request,response) {
 		if (!request.body.email) {
-			response.status(400).json("Please enter an email");
+			response.status(400)
+			.json("Please enter an email");
 		} else if (!request.body.password){
-			response.status(400).json("Please enter a password");
+			response.status(400)
+			.json("Please enter a password");
 		} else {
 			models.User.forge({email: request.body.email})
 			.fetch()
 			.then(function (user) {
 				if (user) {
-					response.status(400).json(user + "User name already exists");
+					response.status(400)
+					.json("the email: " + user + " is already being used");
 				} else {
 					var newUser = new models.User({
 						email: request.body.email,
@@ -129,43 +130,115 @@ router.route('/in')
 		response.json(Boolean(request.user));
 	});
 
+// CRUD FOR CATEGORIES - retrieves data from user currently signed in
 router.route('/categories')
 	.all(function(request, response, next){
 		if(request.user) {
 			next();
 		} else {
-			response.status(405).json("ERROR: must be signed in as a user")
+			response.status(401)
+			.json({error: true, message: "ERROR: Must be signed in as a user to access this data"});
 		}
 	})
+
 	.post(function(request,response) {
 		var newCategory = new models.Category({
 			name: request.body.name,
 			user_id: request.user.get('id')
-		}).save();
-		response.status(201).json(request.body.name + " has been created");
+		});
+		newCategory.fetch()
+		.then(function(category) {
+			if(category) {
+				response.status(400)
+				.json({error: true, message: "ERROR: category already exists"});
+			} else {
+				newCategory.save()
+				.then(function() {
+					response.status(201)
+					.json({error: false, message: "Sucessfully created " + request.body.name + " in Database"});
+				})
+				.catch(function() {
+					response.status(500)
+					.json({error: true, message: "ERROR: Unable to create " + request.body.name + " in Database: " + err});
+				});
+			}
+		})
+		.catch(function(err) {
+			response.status(500)
+			.json({error: true, message: "ERROR: Unable to fetch data from Database: " + err});
+		});
 	})
 
 	.get(function(request, response) {
 		request.user.fetch({ withRelated: ['categories']})
 		.then(function(user) {
-			response.json(user.related('categories'));
+			response.status(200)
+			.json({error: false, message: "Sucessfuly read data from Database", data: user.related('categories')});
+		})
+		.catch(function(err){
+			response.status(500)
+			.json({error: true, message: "ERROR: Unable to read users categories' from Database: " + err});
 		});
 	})
 
 	.put(function(request, response) {
-		models.Category.forge({id: request.body.id})
+		models.Category.forge({
+			name: request.body.oldName,
+			user_id: request.user.get('id')
+		})
 		.fetch()
-		.then(function(category){
-			category.save({
-				name: request.body.name || category.get('name')
-			});
+		.then(function(oldCategory) {
+			if (!oldCategory) {
+				throw "TypeError: category undefined";
+			}
+			models.Category.forge({
+				name: request.body.newName,
+				user_id: request.user.get('id')
+			})
+			.fetch()
+			.then(function(newCategory) {
+				if(newCategory) {
+					response.status(400)
+					.json({error: true, message: "ERROR: category already exists"});
+				} else {
+					oldCategory.save({
+						name: request.body.newName || category.get('name'),
+						user_id: request.user.get('id') || category.get('user_id')
+					})
+					.then(function() {
+						response.status(200)
+						.json({error: false, message: "Successfully updated " + request.body.oldName + " to " + request.body.newName});
+					})
+					.catch(function(err) {
+						response.status(500)
+						.json({error: true, message: "ERROR: Unable to save update " + request.body.oldName + " in Database: " + err});
+					});
+				}
+			})
 		})
 		.catch(function(err) {
-			console.log("ERROR: could not find " + request.body.id + " in the db");
+			response.status(404)
+			.json({error: true, message: "ERROR: " + request.body.oldName + " not found in Database: " + err});
 		})
 	})
 
 	.delete(function(request, response) {
-		//TODO
+		models.Category.forge({name: request.body.name})
+		.fetch()
+		.then(function(category) {
+			category.destroy()
+			.then(function() {
+				response.status(200)
+				.json({error: false, message: "Successfully deleted " + request.body.name});
+			})
+			.catch(function(err) {
+				response.status(500)
+				.json({error: true, message: "ERROR: Unable to deleted " + request.body.name + " from Database: " + err});
+			});
+		})
+		.catch(function(err) {
+			response.status(404)
+			.json({error: true, message: "ERROR: " + request.body.name + " not found in Database: " + err});
+		});
 	})
 exports.router = router;

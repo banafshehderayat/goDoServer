@@ -1,0 +1,4 @@
+sudo -i -u postgres
+createuser --interactive -P
+GoDoAdmin
+createdb -O GoDoAdmin GoDo -W
