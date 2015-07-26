@@ -28,7 +28,7 @@ passport.use(new LocalStrategy(function(username, password, done){
 			console.log(email + " has logged in")
 			return done(null, user,  { message: email + " has logged in" });
 		}
-	});
+	})
 	.catch( function(err) {
 		if (err) {
 			console.log("Error: Database query failed");
@@ -72,53 +72,86 @@ router.get('/', function(request,response) {
 	}
 })
 
-router.post('/login', passport.authenticate('local', { failureRedirect: '/sign_in' }), function(request, reponse) {
-	reponse.json(request.user.get('email') + " has logged in");
-});
+// SIGN UP ROUTES
+router.route('/sign_in')
+	.get(function(request, response) {
+		response.sendFile(path.join(__dirname, '../', 'public/index.html'));
+	})
+	.post(function(request,response) {
+		if (!request.body.email) {
+			response.status(400).json("Please enter an email");
+		} else if (!request.body.password){
+			response.status(400).json("Please enter a password");
+		} else {
+			models.User.forge({email: request.body.email})
+			.fetch()
+			.then(function (user) {
+				if (user) {
+					response.status(400).json(user + "User name already exists");
+				} else {
+					var newUser = new models.User({
+						email: request.body.email,
+						password: request.body.password
+					});
+					newUser.save();
+					str = "username: " + newUser.get('email') + " password: " + newUser.get('password');
+					response.status(201).json(str);
+				}
+			})
+			.catch(function(err) {
+				console.log("ERROR: something with finding users");
+			});
+		}
+	});
 
-router.get('/login', function(request, response) {
-	response.sendFile(path.join(__dirname, '../', 'public/index.html'));
-});
+// LOGIN ROUTES
+router.route('/login')
+	.post(passport.authenticate('local', { failureRedirect: '/sign_in' }), function(request, reponse) {
+		reponse.json(request.user.get('email') + " has logged in");
+	})
 
-router.get('/sign_in', function(request, response) {
-	response.sendFile(path.join(__dirname, '../', 'public/index.html'));
-});
-router.post('/sign_in', function(request,response) {
-	if (!request.body.email) {
-		response.status(400).json("Please enter an email");
-	} else if (!request.body.password){
-		response.status(400).json("Please enter a password");
-	} else {
-		models.User.forge({email: request.body.email})
-		.fetch()
-		.then(function (user) {
-			if (user) {
-				response.status(400).json(user + "User name already exists");
-			} else {
-				var newUser = new models.User({
-					email: request.body.email,
-					password: request.body.password
-				});
-				newUser.save();
-				str = "username: " + newUser.get('email') + " password: " + newUser.get('password');
-				response.status(201).json(str);
-			}
-		})
-		.catch(function(err) {
-			console.log("ERROR: something with finding users");
+	.get(function(request, response) {
+		response.sendFile(path.join(__dirname, '../', 'public/index.html'));
+	});
+
+
+// LOG OUT ROUTES
+router.route('/logout')
+	.get(function(request, response) {
+		email = request.user.get('email');
+		request.logout();
+		response.json(email + " has signing out");
+	});
+
+// USER INFO
+router.route('/categories')
+	.all(function(request, response, next){
+		if(request.user) {
+			next();
+		} else {
+			response.status(405).json("ERROR: must be signed in as a user")
+		}
+	})
+	.post(function(request,response) {
+		var newCategory = new models.Category({
+			name: request.body.name,
+			user_id: request.user.get('id')
+		}).save();
+		response.status(201).json(request.body.name + " has been created");
+	})
+
+	.get(function(request, response) {
+		request.user.fetch({ withRelated: ['categories']})
+		.then(function(user) {
+			response.json(user.related('categories'));
 		});
-	}
-});
+	})
 
-router.get('/logout', function(request, response) {
-	email = request.user.get('email');
-	request.logout();
-	response.json(email + " has signing out");
-})
+	.put(function(request, response) {
+		//TODO
+	})
 
-//HOLY SHIT BE CAREFUL MAN - DELETE THIS OR ENSURE PROPER SECURITY IS IMPLEMENTED BEFORE RELEASE
-router.post('/cleardb', function(request, response) {
-
-})
-
+	.delete(function(request, response) {
+		//TODO
+	})
 exports.router = router;
