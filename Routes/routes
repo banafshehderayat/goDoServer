@@ -126,7 +126,7 @@ router.route('/logout')
 // USER INFO
 router.route('/in')
 	.get(function(request, response){
-		response.json(request.body.user);
+		response.json(Boolean(request.user));
 	});
 
 router.route('/categories')
@@ -154,6 +154,15 @@ router.route('/categories')
 
 	.put(function(request, response) {
 		models.Category.forge({id: request.body.id})
+		.fetch()
+		.then(function(category){
+			category.save({
+				name: request.body.name || category.get('name')
+			});
+		})
+		.catch(function(err) {
+			console.log("ERROR: could not find " + request.body.id + " in the db");
+		})
 	})
 
 	.delete(function(request, response) {
