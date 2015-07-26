@@ -11,6 +11,25 @@ var models = require('../Database/models')
 // COLLECTIONS
 var collections = require('../Database/collections');
 
+//USEFEL MIDDLEWARE
+var auth = function(request, response, next) {
+	if(request.isAuthenticated()) {
+		next();
+	} else {
+		response.status(401)
+		.json({error: true, message: "ERROR: Must be signed in as a user to access this data"});
+	}
+};
+
+var notAuth = function(request, response, next) {
+	if(!request.isAuthenticated()) {
+		next();
+	} else {
+		response.status(401)
+		.json({error: true, message: "ERROR: Already logged in"});
+	}
+};
+
 //PASSPORT set up
 passport.use(new LocalStrategy(function(username, password, done){
 	models.User.forge({email: username})
@@ -72,10 +91,11 @@ router.get('/', function(request,response) {
 
 // SIGN UP ROUTES
 router.route('/sign_in')
+	.all(notAuth)
 	.get(function(request, response) {
 		response.sendFile(path.join(__dirname, '../', 'public/index.html'));
 	})
-	.post(function(request,response) {
+	.post(function(request,response,next) {
 		if (!request.body.email) {
 			response.status(400)
 			.json("Please enter an email");
@@ -95,30 +115,50 @@ router.route('/sign_in')
 						password: request.body.password
 					});
 					newUser.save();
-					str = "username: " + newUser.get('email') + " password: " + newUser.get('password');
-					response.status(201).json(str);
+					response.json("Done");
 				}
 			})
 			.catch(function(err) {
 				console.log("ERROR: something with finding users");
 			});
 		}
-	});
+	}, passport.authenticate('local'));
 
 // LOGIN ROUTES
 router.route('/login')
+
 	.post(passport.authenticate('local', { failureRedirect: '/sign_in' }), function(request, reponse) {
-		reponse.json(request.user.get('email') + " has logged in");
+		if(request.user) {
+			response.status(401)
+			.json({error: true, message: "ERROR: Already logged in as " + request.user.get('email')});
+		} else {
+			reponse.status(200)
+			.json({error: false, message: request.user.get('email') + " has logged in"});
+		}
 	})
 
 	.get(function(request, response) {
-		response.sendFile(path.join(__dirname, '../', 'public/index.html'));
+		if(request.user) {
+			response.status(200)
+			.json({error: true, message: "ERROR: Already logged in as " + request.user.get('email')});
+		} else {
+			response.status(401)
+			.json({error: true, message: "ERROR: Not logged in as anyone"});
+		}
 	});
 
 
 // LOG OUT ROUTES
 router.route('/logout')
-	.get(function(request, response) {
+	.all(function(request, response, next){
+		if(request.user) {
+			next();
+		} else {
+			response.status(401)
+			.json({error: true, message: "ERROR: Must be signed in as a user to access this data"});
+		}
+	})
+	.post(function(request, response) {
 		email = request.user.get('email');
 		request.logout();
 		response.json(email + " has signing out");
@@ -132,15 +172,7 @@ router.route('/in')
 
 // CRUD FOR CATEGORIES - retrieves data from user currently signed in
 router.route('/categories')
-	.all(function(request, response, next){
-		if(request.user) {
-			next();
-		} else {
-			response.status(401)
-			.json({error: true, message: "ERROR: Must be signed in as a user to access this data"});
-		}
-	})
-
+	.all(auth)
 	.post(function(request,response) {
 		var newCategory = new models.Category({
 			name: request.body.name,
@@ -240,5 +272,6 @@ router.route('/categories')
 			response.status(404)
 			.json({error: true, message: "ERROR: " + request.body.name + " not found in Database: " + err});
 		});
-	})
+	});
+
 exports.router = router;

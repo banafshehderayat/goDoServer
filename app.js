@@ -18,6 +18,15 @@ var parseurl = require('parseurl');
 var models = require('./Database/models');
 
 // MIDDLEWARE
+app.use(function (request, response, next) {
+	response.header("Access-Control-Allow-Origin", "*");
+	response.header('Access-Control-Allow-Methods', 'OPTIONS,GET,POST,PUT,DELETE');
+	response.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+	if ('OPTIONS' == request.method) {
+	 	return response.send(200);
+	}
+	next();
+});
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
