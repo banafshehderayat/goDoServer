@@ -1,0 +1,6 @@
+sudo -i -u postgres
+createuser --interactive -P
+GoDoAdmin
+cuphelmetwrappersilicon
+cuphelmetwrappersilicon
+createdb -O GoDoAdmin GoDo -W

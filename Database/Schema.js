@@ -3,7 +3,8 @@ var Schema = {
 	users: {
 		id: {type: 'increments', nullable: false, primary: true},
 		email: {type: 'string', maxlength: 255, nullable: false, unique: true},
-		password: {type: 'string', maxlength: 127, nullable: false}
+		password: {type: 'string', maxlength: 127, nullable: false},
+		token: {type: 'text', fieldtype: 'medium', nullable: false}
 	},
 
 	// state of their page when last logged in
@@ -25,7 +26,7 @@ var Schema = {
 	routines: {
 		id: {type: 'increments', nullable: false, primary: true},
 		name: {type: 'string', maxlength: 127, nullable: false},
-		description: {type: 'text', maxlength: 1023, fieldtype: 'medium', nullable: true},
+		description: {type: 'text', fieldtype: 'medium', nullable: true},
 		set_time: {type: 'boolean', nullable: false},
 		user_id: {type: 'integer', nullable: false, unsigned: true},
 		category_id: {type: 'integer', nullable: false, unsigned: true},

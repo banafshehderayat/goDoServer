@@ -1,0 +1,18 @@
+// copy and paster after opening GoDO db with GoDoAdmin
+// psql -U GoDoAdmin -d GoDo -h 127.0.0.1 -W
+
+drop table if exists "state";
+drop table if exists "categories";
+drop table if exists "fixed_available";
+drop table if exists "flex_available";
+drop table if exists "goals";
+drop table if exists "todos";
+drop table if exists "users";
+
+// to check if the tables that are left
+
+SELECT table_name
+  FROM information_schema.tables
+ WHERE table_schema='public'
+   AND table_type='BASE TABLE';
+ table_name 

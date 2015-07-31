@@ -72,6 +72,7 @@ var initDb = function () {
 					});
 
 				} else {
+					console.log("*Table " + tableName + " already exists");
 					callback(null, exists);
 				}
 			})
@@ -87,8 +88,10 @@ var initDb = function () {
 	Async.series(calls, function (err, result) {
 		if (!err) {
 			console.log("Finished initialising database table");
+			process.exit(0);
 		} else {
 			console.log("Error initialising database table: " + err);
+			process.exit(1);
 		}
 	});
 };
