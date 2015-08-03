@@ -38,7 +38,7 @@ var Category = Bookshelf.Model.extend({
 exports.Category = Category;
 
 var Todo = Bookshelf.Model.extend({
-	tableName: 'todos',
+	tableName: 'todos'
 });
 exports.Todo = Todo;
 

@@ -1,0 +1,38 @@
+// MODELS
+var models = require('../Database/models')
+
+var getToDoPromise = function(category_name, response, useToDoPromise) {
+	if (category_name == 'all') {
+		useToDoPromise(request.user.fetch({ withRelated: ['todos']}), response);
+	} else {
+		models.Category.forge({name: category_name})
+		.fetch()
+		.then(function(category) {
+			if (category) {
+				useToDoPromise(category.fetch({ withRelated: ['todos']}), response);
+			} else {
+				response.status(404)
+				.json({error: true, message: "ERROR: " + category_name + " not found in Database: "});
+			}
+		})
+		.catch(function(error) {
+			response.status(500)
+			.json({error: true, message: "ERROR: Database query failed: " + error});
+		});
+	}
+}
+
+exports.getToDoPromise = getToDoPromise;
+
+var useToDoPromise = function(promise, response) {
+	promise.then(function(category) {
+		response.status(200)
+		.json({error: false, message: "Sucessfuly read data from Database", data: category.related('todos')});
+	})
+	.catch(function(error){
+		response.status(500)
+		.json({error: true, message: "ERROR: Unable to read user's todos from Database: " + error});
+	});
+}
+
+exports.useToDoPromise = useToDoPromise;

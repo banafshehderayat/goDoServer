@@ -2,6 +2,7 @@ var express = require('express');
 var router = express.Router();
 var jwt = require('jsonwebtoken');
 var path = require('path');
+var helper = require('./helper_functions');
 
 // MODELS
 var models = require('../Database/models')
@@ -112,10 +113,10 @@ router.route('/login')
 		.then(function (user) {
 			if (!user) {
 				response.status(404)
-				.json({error: true, message: "Error: user not found"});
+				.json({error: true, message: "ERROR: user not found"});
 			} else if (request.body.password != user.get('password')) {
 				response.status(403)
-				.json({error: true, message: "Error: incorrect password"});
+				.json({error: true, message: "ERROR: incorrect password"});
 			} else {
 				response.status(200)
 				.json({error: false, message: user.get('email') + " has logged in", data: user, token: user.token})
@@ -124,7 +125,7 @@ router.route('/login')
 		.catch( function(error) {
 			if (error) {
 				response.status(500)
-				.json("Error: Database query failed: " + error);
+				.json("ERROR: Database query failed: " + error);
 			}
 		});
 	})
@@ -148,7 +149,9 @@ router.route('/in')
 
 // CRUD FOR CATEGORIES - retrieves data from user currently signed in
 router.route('/categories')
+
 	.all(auth)
+
 	.post(function(request,response) {
 		var newCategory = new models.Category({
 			name: request.body.name,
@@ -171,9 +174,9 @@ router.route('/categories')
 				});
 			}
 		})
-		.catch(function(err) {
+		.catch(function(error) {
 			response.status(500)
-			.json({error: true, message: "ERROR: Unable to fetch data from Database: " + err});
+			.json({error: true, message: "ERROR: Database query failed: " + error});
 		});
 	})
 
@@ -183,9 +186,9 @@ router.route('/categories')
 			response.status(200)
 			.json({error: false, message: "Sucessfuly read data from Database", data: user.related('categories')});
 		})
-		.catch(function(err){
+		.catch(function(error){
 			response.status(500)
-			.json({error: true, message: "ERROR: Unable to read users categories' from Database: " + err});
+			.json({error: true, message: "ERROR: Unable to read user's categories from Database: " + error});
 		});
 	})
 
@@ -197,7 +200,8 @@ router.route('/categories')
 		.fetch()
 		.then(function(oldCategory) {
 			if (!oldCategory) {
-				throw "TypeError: category undefined";
+				 response.status(404)
+				 .json({error: true, message: "ERROR: " + request.body.oldName + " not found in Database: "});
 			}
 			models.Category.forge({
 				name: request.body.newName,
@@ -217,36 +221,170 @@ router.route('/categories')
 						response.status(200)
 						.json({error: false, message: "Successfully updated " + request.body.oldName + " to " + request.body.newName});
 					})
-					.catch(function(err) {
+					.catch(function(error) {
 						response.status(500)
-						.json({error: true, message: "ERROR: Unable to save update " + request.body.oldName + " in Database: " + err});
+						.json({error: true, message: "ERROR: Unable to save update " + request.body.oldName + " in Database: " + error});
 					});
 				}
 			})
 		})
-		.catch(function(err) {
+		.catch(function(error) {
 			response.status(404)
-			.json({error: true, message: "ERROR: " + request.body.oldName + " not found in Database: " + err});
-		})
+			.json({error: true, message: "ERROR: Database query failed: " + error});
+		});
 	})
 
 	.delete(function(request, response) {
 		models.Category.forge({name: request.body.name})
 		.fetch()
 		.then(function(category) {
+			if (category) {
+				response.status(404)
+				.json({error: true, message: "ERROR: " + request.body.name + " not found in Database: "});
+			}
 			category.destroy()
 			.then(function() {
 				response.status(200)
 				.json({error: false, message: "Successfully deleted " + request.body.name});
 			})
-			.catch(function(err) {
+			.catch(function(error) {
 				response.status(500)
-				.json({error: true, message: "ERROR: Unable to deleted " + request.body.name + " from Database: " + err});
+				.json({error: true, message: "ERROR: Unable to deleted " + request.body.name + " from Database: " + error});
 			});
 		})
-		.catch(function(err) {
+		.catch(function(error) {
 			response.status(404)
-			.json({error: true, message: "ERROR: " + request.body.name + " not found in Database: " + err});
+			.json({error: true, message: "ERROR: Database query failed: " + error});
+		});
+	});
+
+// CRUD for ToDos
+router.route('/:category/todos')
+
+	.all(auth, function(request, response, next) {
+		request.category_name = request.params.category;
+		next();
+	})
+
+	.post(function(request,response) {
+		// get category id
+		var categoryId = null;
+		models.Category.forge({name: request.category_name})
+		.fetch({require: true})
+		.then(function(category){
+			if (category) {
+
+				categoryId = category.get('id');
+				// create new todo
+				// date format must be 'yyyy-mm-dd hh:mm:ss+/-<time zone>' e.g. '1995-02-26 09:25:26.056+09'
+				var newToDo = new models.Todo({
+					name: request.body.name,
+					description: request.body.description,
+					set_time: request.body.set_time,
+					date: request.body.date,
+					category_id: categoryId,
+					user_id: request.user.get('id')
+				});
+
+				newToDo.fetch()
+				.then(function(todo) {
+					if(todo) {
+						response.status(400)
+						.json({error: true, message: "ERROR: category already exists"});
+					} else {
+						newToDo.save()
+						.then(function() {
+							response.status(201)
+							.json({error: false, message: "Sucessfully created " + request.body.name + " in Database"});
+						})
+						.catch(function(error) {
+							response.status(500)
+							.json({error: true, message: "ERROR: Unable to create " + request.body.name + " in Database: " + error});
+						});
+					}
+				})
+				.catch(function(error) {
+					response.status(500)
+					.json({error: true, message: "ERROR: Database query failed: " + error});
+				});
+			} else {
+				response.status(404)
+				.json({error: true, message: "ERROR: " + request.category_name + " not found in Database: "});
+			}
+		})
+		.catch(function(error) {
+			response.status(500)
+			.json({error: true, message: "ERROR: Database query failed: " + error});
+		});
+	})
+
+	.get(function(request, response) {
+		helper.getToDoPromise(request.category_name, response, helper.useToDoPromise);
+	})
+
+	.put(function(request, response) {
+		models.Category.forge({
+			name: request.body.oldName,
+			user_id: request.user.get('id')
+		})
+		.fetch()
+		.then(function(oldCategory) {
+			if (!oldCategory) {
+				 response.status(404)
+				 .json({error: true, message: "ERROR: " + request.body.oldName + " not found in Database: "});
+			}
+			models.Category.forge({
+				name: request.body.newName,
+				user_id: request.user.get('id')
+			})
+			.fetch()
+			.then(function(newCategory) {
+				if(newCategory) {
+					response.status(400)
+					.json({error: true, message: "ERROR: category already exists"});
+				} else {
+					oldCategory.save({
+						name: request.body.newName || category.get('name'),
+						user_id: request.user.get('id') || category.get('user_id')
+					})
+					.then(function() {
+						response.status(200)
+						.json({error: false, message: "Successfully updated " + request.body.oldName + " to " + request.body.newName});
+					})
+					.catch(function(error) {
+						response.status(500)
+						.json({error: true, message: "ERROR: Unable to save update " + request.body.oldName + " in Database: " + error});
+					});
+				}
+			})
+		})
+		.catch(function(error) {
+			response.status(404)
+			.json({error: true, message: "ERROR: Database query failed: " + error});
+		});
+	})
+
+	.delete(function(request, response) {
+		models.Category.forge({name: request.body.name})
+		.fetch()
+		.then(function(category) {
+			if (category) {
+				response.status(404)
+				.json({error: true, message: "ERROR: " + request.body.name + " not found in Database: "});
+			}
+			category.destroy()
+			.then(function() {
+				response.status(200)
+				.json({error: false, message: "Successfully deleted " + request.body.name});
+			})
+			.catch(function(error) {
+				response.status(500)
+				.json({error: true, message: "ERROR: Unable to deleted " + request.body.name + " from Database: " + error});
+			});
+		})
+		.catch(function(error) {
+			response.status(404)
+			.json({error: true, message: "ERROR: Database query failed: " + error});
 		});
 	});
 

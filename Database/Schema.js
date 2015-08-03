@@ -66,7 +66,7 @@ var Schema = {
 		name: {type: 'string', nullable: false},
 		description: {type: 'string', maxlength: 255, nullable: true},
 		set_time: {type: 'boolean', nullable: false},
-		date: {type: 'date', nullable: false},
+		date: {type: 'dateTime', nullable: false},
 		category_id: {type: 'integer', nullable: false, unsigned: true},
 		user_id: {type: 'integer', nullable: false, unsigned: true}
 	}
