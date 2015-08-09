@@ -56,16 +56,13 @@ router.get('/', function(request,response) {
 })
 
 // SIGN UP ROUTES
-router.route('/sign_in')
+router.route('/signup')
 
 	.get(function(request, response) {
 		response.sendFile(path.join(__dirname, '../', 'public/index.html'));
 	})
 
 	.post(function(request,response,next) {
-		if (null) {
-			console.log('test');
-		}
 		if (!request.body.email) {
 			response.status(400)
 			.json({error: true, message: "Please enter an email"});
@@ -158,21 +155,8 @@ router.route('/categories')
 			user_id: request.user.get('id')
 		});
 		newCategory.fetch()
-		.then(function(category) {
-			if(category) {
-				response.status(400)
-				.json({error: true, message: "ERROR: category already exists"});
-			} else {
-				newCategory.save()
-				.then(function() {
-					response.status(201)
-					.json({error: false, message: "Sucessfully created " + request.body.name + " in Database"});
-				})
-				.catch(function() {
-					response.status(500)
-					.json({error: true, message: "ERROR: Unable to create " + request.body.name + " in Database: " + err});
-				});
-			}
+		.then(function(category){
+			helper.saveIt(newCategory, category, 'category', response)
 		})
 		.catch(function(error) {
 			response.status(500)
@@ -214,8 +198,8 @@ router.route('/categories')
 					.json({error: true, message: "ERROR: category already exists"});
 				} else {
 					oldCategory.save({
-						name: request.body.newName || category.get('name'),
-						user_id: request.user.get('id') || category.get('user_id')
+						name: request.body.newName || oldCategory.get('name'),
+						user_id: request.user.get('id') || oldCategory.get('user_id')
 					})
 					.then(function() {
 						response.status(200)
@@ -235,22 +219,25 @@ router.route('/categories')
 	})
 
 	.delete(function(request, response) {
-		models.Category.forge({name: request.body.name})
-		.fetch()
+		models.Category.forge({name: request.body.name, user_id: request.user.get('id')})
+		.fetch({ withRelated: ['todos']})
 		.then(function(category) {
-			if (category) {
-				response.status(404)
-				.json({error: true, message: "ERROR: " + request.body.name + " not found in Database: "});
+			var todos = category.related('todos').toJSON();
+			console.log(todos)
+			for (var i = 0; i < todos.length; i++) {
+				models.Todo.forge({name: todos[i]['name'], user_id: request.user.get('id')})
+				.fetch({required: true})
+				.then(function(todo) {
+					helper.deleteIt(todo, todo.get('name'), response);
+				})
+				.catch(function(error) {
+					response.status(404)
+					.json({error: true, message: "ERROR: Database query failed: " + error});
+				});
 			}
-			category.destroy()
-			.then(function() {
-				response.status(200)
-				.json({error: false, message: "Successfully deleted " + request.body.name});
-			})
-			.catch(function(error) {
-				response.status(500)
-				.json({error: true, message: "ERROR: Unable to deleted " + request.body.name + " from Database: " + error});
-			});
+			helper.deleteIt(category, request.body.name, response);
+			response.status(200)
+			.json({error: false, message: "Successfully deleted " + request.body.name});
 		})
 		.catch(function(error) {
 			response.status(404)
@@ -269,14 +256,13 @@ router.route('/:category/todos')
 	.post(function(request,response) {
 		// get category id
 		var categoryId = null;
-		models.Category.forge({name: request.category_name})
+		models.Category.forge({name: request.category_name, user_id: request.user.get('id')})
 		.fetch({require: true})
 		.then(function(category){
 			if (category) {
 
 				categoryId = category.get('id');
 				// create new todo
-				// date format must be 'yyyy-mm-dd hh:mm:ss+/-<time zone>' e.g. '1995-02-26 09:25:26.056+09'
 				var newToDo = new models.Todo({
 					name: request.body.name,
 					description: request.body.description,
@@ -288,20 +274,7 @@ router.route('/:category/todos')
 
 				newToDo.fetch()
 				.then(function(todo) {
-					if(todo) {
-						response.status(400)
-						.json({error: true, message: "ERROR: category already exists"});
-					} else {
-						newToDo.save()
-						.then(function() {
-							response.status(201)
-							.json({error: false, message: "Sucessfully created " + request.body.name + " in Database"});
-						})
-						.catch(function(error) {
-							response.status(500)
-							.json({error: true, message: "ERROR: Unable to create " + request.body.name + " in Database: " + error});
-						});
-					}
+					helper.saveIt(newToDo, todo, 'todo', response)
 				})
 				.catch(function(error) {
 					response.status(500)
@@ -319,33 +292,49 @@ router.route('/:category/todos')
 	})
 
 	.get(function(request, response) {
-		helper.getToDoPromise(request.category_name, response, helper.useToDoPromise);
+		helper.getIt(request.user, request.category_name, 'todos', response);
 	})
 
 	.put(function(request, response) {
-		models.Category.forge({
+		var categoryId = null;
+		if (request.body.category_name) {
+			models.Category.forge({name: request.body.category_name, user_id: request.user.get('id')})
+			.fetch({required: true})
+			.then(function(category) {
+				categoryId = category.get('id');
+			})
+			.catch(function(error) {
+				response.status(404)
+				.json({error: true, message: "ERROR: " + request.body.category_name + "not found in Database"});
+			});
+		}
+		models.Todo.forge({
 			name: request.body.oldName,
 			user_id: request.user.get('id')
 		})
 		.fetch()
-		.then(function(oldCategory) {
-			if (!oldCategory) {
+		.then(function(oldTodo) {
+			if (!oldTodo) {
 				 response.status(404)
 				 .json({error: true, message: "ERROR: " + request.body.oldName + " not found in Database: "});
 			}
-			models.Category.forge({
+			models.Todo.forge({
 				name: request.body.newName,
 				user_id: request.user.get('id')
 			})
 			.fetch()
-			.then(function(newCategory) {
-				if(newCategory) {
+			.then(function(newTodo) {
+				if(newTodo) {
 					response.status(400)
-					.json({error: true, message: "ERROR: category already exists"});
+					.json({error: true, message: "ERROR: todo already exists"});
 				} else {
-					oldCategory.save({
-						name: request.body.newName || category.get('name'),
-						user_id: request.user.get('id') || category.get('user_id')
+					oldTodo.save({
+						name: request.body.newName || oldTodo.get('name'),
+						description: request.body.description || oldTodo.get('description'),
+						set_time: request.body.set_time || oldTodo.get('set_time'),
+						date: request.body.date || oldTodo.get('date'),
+						category_id: categoryId || oldTodo.get('category_id'),
+						user_id: request.user.get('id') || oldTodo.get('user_id')
 					})
 					.then(function() {
 						response.status(200)
@@ -365,22 +354,12 @@ router.route('/:category/todos')
 	})
 
 	.delete(function(request, response) {
-		models.Category.forge({name: request.body.name})
+		models.Todo.forge({name: request.body.name, user_id: request.user.get('id')})
 		.fetch()
-		.then(function(category) {
-			if (category) {
-				response.status(404)
-				.json({error: true, message: "ERROR: " + request.body.name + " not found in Database: "});
-			}
-			category.destroy()
-			.then(function() {
-				response.status(200)
-				.json({error: false, message: "Successfully deleted " + request.body.name});
-			})
-			.catch(function(error) {
-				response.status(500)
-				.json({error: true, message: "ERROR: Unable to deleted " + request.body.name + " from Database: " + error});
-			});
+		.then(function(todo) {
+			helper.deleteIt(todo, request.body.name, response);
+			response.status(200)
+			.json({error: false, message: "Successfully deleted " + request.body.name});
 		})
 		.catch(function(error) {
 			response.status(404)
