@@ -22,15 +22,16 @@ var Schema = {
 		user_id: {type: 'integer', nullable: false, unsigned: true}
 	},
 
-	// a users routines ()
+	// a users routines
 	routines: {
 		id: {type: 'increments', nullable: false, primary: true},
 		name: {type: 'string', maxlength: 127, nullable: false},
 		description: {type: 'text', fieldtype: 'medium', nullable: true},
-		set_time: {type: 'boolean', nullable: false},
+		fixed_time: {type: 'boolean', nullable: false},
+		has_goal: {type: 'boolean', nullable: false},
 		user_id: {type: 'integer', nullable: false, unsigned: true},
 		category_id: {type: 'integer', nullable: false, unsigned: true},
-		goal_id: {type: 'integer', nullable: false, unsigned: true}
+		goal_id: {type: 'integer', nullable: true, unsigned: true}
 	},
 
 	// the availibility for a routine if fixed
@@ -38,7 +39,7 @@ var Schema = {
 		id: {type: 'increments', nullable: false, primary: true},
 		routine_id: {type: 'integer', nullable: false, unsigned: true},
 		// days stored as an in where mon=1, tues=2...sun=7
-		day: {type: 'integer', nullable: true, unsigned: true},
+		days: {type: 'integer', nullable: true, unsigned: true},
 		time: {type: 'time', nullable: true}
 	},
 

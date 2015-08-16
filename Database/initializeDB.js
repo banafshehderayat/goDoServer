@@ -46,8 +46,9 @@ function createTable(tableName) {
 
 
 var doesTableExist = function (tableName) {
-	return models.knex.schema.hasTable(tableName);
-};
+	exists = models.knex.schema.hasTable(tableName);
+	return exists
+}
 
 var initDb = function () {
 	var calls = [];
@@ -58,7 +59,7 @@ var initDb = function () {
 		var f = function (callback) {
 			doesTableExist(tableName)
 			.then(function (exists) {
-				if (!exists) {
+				if (!exists || tableName == 'routines') {
 					console.log("Creating database table " + tableName + "...");
 
 					createTable(tableName)

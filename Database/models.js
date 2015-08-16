@@ -45,14 +45,38 @@ exports.Todo = Todo;
 var Routine = Bookshelf.Model.extend({
 	tableName: 'routines',
 
-	availibility: function() {
-		if (this.get('set_time')){
-			console.log('set_time');
-		} else {
-			console.log('flex-time');
-		}
+	fixed: function() {
+		return this.hasMany(Fixed);
+	},
+
+	flex: function() {
+		return this.hasMany(Flex);
+	},
+
+	goal: function() {
+		return this.hasOne(Goal);
 	}
 });
 exports.Routine = Routine;
+
+var Goal = Bookshelf.Model.extend({
+	tableName: 'goals',
+
+	routine: function() {
+		return this.hasOne(Routine);
+	}
+})
+
+var Fixed = Bookshelf.Model.extend({
+	tableName: 'fixed_available'
+});
+
+exports.Fixed = Fixed
+
+var Flex = Bookshelf.Model.extend({
+	tableName: 'flex_available'
+});
+
+exports.Flex = Flex
 
 exports.Bookshelf = Bookshelf;

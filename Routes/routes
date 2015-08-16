@@ -156,7 +156,7 @@ router.route('/categories')
 		});
 		newCategory.fetch()
 		.then(function(category){
-			helper.saveIt(newCategory, category, 'category', response)
+			helper.saveIt(newCategory, category, 'category', request, response)
 		})
 		.catch(function(error) {
 			response.status(500)
@@ -274,7 +274,7 @@ router.route('/:category/todos')
 
 				newToDo.fetch()
 				.then(function(todo) {
-					helper.saveIt(newToDo, todo, 'todo', response)
+					helper.saveIt(newToDo, todo, 'todo', request, response)
 				})
 				.catch(function(error) {
 					response.status(500)
@@ -292,7 +292,128 @@ router.route('/:category/todos')
 	})
 
 	.get(function(request, response) {
-		helper.getIt(request.user, request.category_name, 'todos', response);
+		helper.getIt(request.user, request.category_name, 'todos', response)
+	})
+
+	.put(function(request, response) {
+		var categoryId = null;
+		if (request.body.category_name) {
+			models.Category.forge({name: request.body.category_name, user_id: request.user.get('id')})
+			.fetch({required: true})
+			.then(function(category) {
+				categoryId = category.get('id');
+			})
+			.catch(function(error) {
+				response.status(404)
+				.json({error: true, message: "ERROR: " + request.body.category_name + "not found in Database"});
+			});
+		}
+		models.Todo.forge({
+			name: request.body.oldName,
+			user_id: request.user.get('id')
+		})
+		.fetch()
+		.then(function(oldTodo) {
+			if (!oldTodo) {
+				 response.status(404)
+				 .json({error: true, message: "ERROR: " + request.body.oldName + " not found in Database: "});
+			}
+			models.Todo.forge({
+				name: request.body.newName,
+				user_id: request.user.get('id')
+			})
+			.fetch()
+			.then(function(newTodo) {
+				if(newTodo) {
+					response.status(400)
+					.json({error: true, message: "ERROR: todo already exists"});
+				} else {
+					oldTodo.save({
+						name: request.body.newName || oldTodo.get('name'),
+						description: request.body.description || oldTodo.get('description'),
+						set_time: request.body.set_time || oldTodo.get('set_time'),
+						date: request.body.date || oldTodo.get('date'),
+						category_id: categoryId || oldTodo.get('category_id'),
+						user_id: request.user.get('id') || oldTodo.get('user_id')
+					})
+					.then(function() {
+						response.status(200)
+						.json({error: false, message: "Successfully updated " + request.body.oldName + " to " + request.body.newName});
+					})
+					.catch(function(error) {
+						response.status(500)
+						.json({error: true, message: "ERROR: Unable to save update " + request.body.oldName + " in Database: " + error});
+					});
+				}
+			})
+		})
+		.catch(function(error) {
+			response.status(404)
+			.json({error: true, message: "ERROR: Database query failed: " + error});
+		});
+	})
+
+	.delete(function(request, response) {
+		models.Todo.forge({name: request.body.name, user_id: request.user.get('id')})
+		.fetch()
+		.then(function(todo) {
+			helper.deleteIt(todo, request.body.name, response);
+			response.status(200)
+			.json({error: false, message: "Successfully deleted " + request.body.name});
+		})
+		.catch(function(error) {
+			response.status(404)
+			.json({error: true, message: "ERROR: Database query failed: " + error});
+		});
+	});
+
+// CRUD for routines
+router.route('/:category/routines')
+
+	.all(auth, function(request, response, next) {
+		request.category_name = request.params.category;
+		next();
+	})
+
+	.post(function(request,response) {
+		// get category id
+		var categoryId = null;
+		models.Category.forge({name: request.category_name, user_id: request.user.get('id')})
+		.fetch({require: true})
+		.then(function(category){
+			if (category) {
+
+				categoryId = category.get('id');
+				// create new todo
+				var newRoutine = new models.Routine({
+					name: request.body.name,
+					description: request.body.description,
+					fixed_time: request.body.fixedTime,
+					has_goal: request.body.hasGoal,
+					user_id: request.user.get('id'),
+					category_id: categoryId,
+				});
+				newRoutine.fetch()
+				.then(function(routine) {
+					helper.saveIt(newRoutine, routine, 'routine', request, response);
+				})
+				.catch(function(error) {
+					response.status(500)
+					.json({error: true, message: "ERROR: Database query failed: " + error});
+				});
+			} else {
+				response.status(404)
+				.json({error: true, message: "ERROR: " + request.category_name + " not found in Database: "});
+			}
+		})
+		.catch(function(error) {
+			response.status(500)
+			.json({error: true, message: "ERROR: Database query failed: " + error});
+		});
+	})
+
+	.get(function(request, response) {
+		helper.getIt(request.user, request.category_name, 'routines', response);
 	})
 
 	.put(function(request, response) {

@@ -10,7 +10,7 @@ var getIt = function(_user, _name, _type, response) {
 		})
 		.catch(function(error){
 			response.status(500)
-			.json({error: true, message: "ERROR: Unable to read user's todos from Database: " + error});
+			.json({error: true, message: "ERROR: Unable to read user's " + _type + " from Database: " + error});
 		});
 	} else {
 		models.Category.forge({name: _name})
@@ -19,12 +19,16 @@ var getIt = function(_user, _name, _type, response) {
 			if (category) {
 				category.fetch({ withRelated: [_type]})
 				.then(function(category) {
-					response.status(200)
-					.json({error: false, message: "Sucessfuly read data from Database", data: category.related(_type)});
+					if (_type == 'todos') {
+						response.status(200)
+						.json({error: false, message: "Sucessfuly read data from Database", data: category.related('todos')});
+					} else if (_type == 'routines') {
+						get_availibility(category, response);
+					}
 				})
 				.catch(function(error){
 					response.status(500)
-					.json({error: true, message: "ERROR: Unable to read user's todos from Database: " + error});
+					.json({error: true, message: "ERROR: Unable to read user's " + _type + " from Database: " + error});
 				});
 			} else {
 				response.status(404)
@@ -38,26 +42,31 @@ var getIt = function(_user, _name, _type, response) {
 	}
 }
 
-exports.getIt = getIt
+exports.getIt = getIt;
 
-var saveIt = function(_newItem, _existingItem, _type, response) {
+var saveIt = function(_newItem, _existingItem, _type, request, response) {
 	if(_existingItem) {
 		response.status(400)
 		.json({error: true, message: "ERROR: " + _type + " already exists"});
 	} else {
 		_newItem.save()
 		.then(function() {
-			response.status(201)
-			.json({error: false, message: "Sucessfully created " + _newItem.get('name') + " in Database"});
+			console.log(_type)
+			if (_type == 'todo') {
+				response.status(201)
+				.json({error: false, message: "Sucessfully created " + _newItem.get('name') + " in Database"});
+			} else if (_type == 'routine') {
+				newAvailibility(_newItem.get('id'), request, response);
+			}
 		})
-		.catch(function() {
+		.catch(function(error) {
 			response.status(500)
-			.json({error: true, message: "ERROR: Unable to create " + _newItem.get('name') + " in Database: " + err});
+			.json({error: true, message: "ERROR: Unable to create " + _newItem.get('name') + " in Database: " + error});
 		});
 	}
 }
 
-exports.saveIt = saveIt
+exports.saveIt = saveIt;
 
 
 var deleteIt = function(_existingItem, _name, response) {
@@ -77,4 +86,98 @@ var deleteIt = function(_existingItem, _name, response) {
 	}
 }
 
-exports.deleteIt = deleteIt
+exports.deleteIt = deleteIt;
+
+var newAvailibility = function(_routineID, request, response) {
+	console.log("routine id : " + _routineID);
+	if (request.body.fixed_time) {
+		// the availibility for a routine if fixed
+		newAvailibility = new models.Fixed({
+			routine_id: _routineID,
+			days: request.body.days,
+			time: request.body.time
+		});
+	}
+	else {
+
+		newAvailibility = new models.Flex({
+			routine_id: _routineID,
+			days: request.body.days,
+			length: request.body.length
+		});
+	}
+	newAvailibility.save()
+	.then(function() {
+		if (request.body.hasGoal) {
+			newGoal(_routineID, request, response);
+		} else {
+			response.status(201)
+			.json({error: false, message: "Sucessfully created in Database"});
+		}
+	})
+	.catch(function(error) {
+		response.status(500)
+		.json({error: true, message: "ERROR*: Database query failed: " + error});
+	});
+}
+
+var newGoal = function(_routineID, request, response) {
+
+	var newGoal = new models.Goal({
+		routine_id: _routineID,
+		number: request.body.number,
+		units: request.body.units,
+		cycle: request.body.cycle
+	})
+	newGoal.save()
+	.then(function(){
+		// CHECK THE CATEGORY !!!!!!!!!
+		models.Routine.forge({name: request.body.name, user_id: request.user.get('id')})
+		.save({goal_id: newGoal.get('id')}, {patch: true})
+		.then(function() {
+			response.status(201)
+			.json({error: false, message: "Sucessfully created in Database"});
+		})
+		.catch(function(error) {
+			response.status(500)
+			.json({error: true, message: "ERROR: Database query failed: " + error});
+		});
+	})
+	.catch(function(error) {
+		response.status(500)
+		.json({error: true, message: "ERROR: Database query failed: " + error});
+	});
+}
+
+var get_availibility = function(category, response) {
+	var routines = category.related('routines');
+	var availibility = []
+	var type = null
+	var _error = null
+	var count = 0
+	for (var i=0; i < routines.length; i++) {
+
+		if(routines.models[i].get('fixed_time')) {
+			type = 'fixed';
+		} else {
+			type = 'flex'
+		}
+		console.log(i);
+		// console.log(routines.models[i]);
+		routines.models[i].fetch({ withRelated: type})
+		.then(function(routine) {
+			console.log(routine.related(type))
+			availibility[count] = routine.related(type);
+			count++;
+			console.log(count)
+			if (count == routines.length) {
+				response.status(200)
+				.json({error: false, message: "Sucessfuly read data from Database", data: [routines.models, availibility]});
+			}
+		})
+		.catch(function(error) {
+			response.status(500)
+			.json({error: true, message: "ERROR*: Database query failed: " + error});
+		});
+	}
+}
