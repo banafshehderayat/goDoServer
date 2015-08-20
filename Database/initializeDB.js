@@ -59,6 +59,7 @@ var initDb = function () {
 		var f = function (callback) {
 			doesTableExist(tableName)
 			.then(function (exists) {
+				// ALERT - due to an unknown bug, hasTable('routines') always returns true
 				if (!exists || tableName == 'routines') {
 					console.log("Creating database table " + tableName + "...");
 

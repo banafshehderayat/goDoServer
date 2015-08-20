@@ -51,8 +51,7 @@ var saveIt = function(_newItem, _existingItem, _type, request, response) {
 	} else {
 		_newItem.save()
 		.then(function() {
-			console.log(_type)
-			if (_type == 'todo') {
+			if (_type == 'todo' || _type == 'category') {
 				response.status(201)
 				.json({error: false, message: "Sucessfully created " + _newItem.get('name') + " in Database"});
 			} else if (_type == 'routine') {
@@ -79,7 +78,6 @@ var deleteIt = function(_existingItem, _name, response) {
 			return true
 		})
 		.catch(function(error) {
-			console.log(error);
 			response.status(500)
 			.json({error: true, message: "ERROR: Unable to delete " + _name + " from Database: " + error});
 		});
@@ -89,8 +87,7 @@ var deleteIt = function(_existingItem, _name, response) {
 exports.deleteIt = deleteIt;
 
 var newAvailibility = function(_routineID, request, response) {
-	console.log("routine id : " + _routineID);
-	if (request.body.fixed_time) {
+	if (request.body.fixed_time == 'true') {
 		// the availibility for a routine if fixed
 		newAvailibility = new models.Fixed({
 			routine_id: _routineID,
@@ -108,7 +105,7 @@ var newAvailibility = function(_routineID, request, response) {
 	}
 	newAvailibility.save()
 	.then(function() {
-		if (request.body.hasGoal) {
+		if (request.body.hasGoal == 'true') {
 			newGoal(_routineID, request, response);
 		} else {
 			response.status(201)
@@ -117,7 +114,7 @@ var newAvailibility = function(_routineID, request, response) {
 	})
 	.catch(function(error) {
 		response.status(500)
-		.json({error: true, message: "ERROR*: Database query failed: " + error});
+		.json({error: true, message: "ERROR: Database query failed: " + error});
 	});
 }
 
@@ -132,16 +129,19 @@ var newGoal = function(_routineID, request, response) {
 	newGoal.save()
 	.then(function(){
 		// CHECK THE CATEGORY !!!!!!!!!
-		models.Routine.forge({name: request.body.name, user_id: request.user.get('id')})
-		.save({goal_id: newGoal.get('id')}, {patch: true})
-		.then(function() {
-			response.status(201)
-			.json({error: false, message: "Sucessfully created in Database"});
+		models.Routine.forge({name: request.body.name, user_id: request.user.get('id'), category_id: request.categoryID})
+		.fetch({required: true})
+		.then(function(routine){
+			routine.save({goal_id: newGoal.get('id')}, {patch: true})
+			.then(function() {
+				response.status(201)
+				.json({error: false, message: "Sucess123fully created in Database"});
+			})
+			.catch(function(error) {
+				response.status(500)
+				.json({error: true, message: "ERROR: Database query failed: " + error});
+			});
 		})
-		.catch(function(error) {
-			response.status(500)
-			.json({error: true, message: "ERROR: Database query failed: " + error});
-		});
 	})
 	.catch(function(error) {
 		response.status(500)
@@ -152,25 +152,24 @@ var newGoal = function(_routineID, request, response) {
 var get_availibility = function(category, response) {
 	var routines = category.related('routines');
 	var availibility = []
+	var goals = []
 	var type = null
 	var _error = null
-	var count = 0
+	var countA = 0
 	for (var i=0; i < routines.length; i++) {
+		// GET GOALS
+		// if (routines.models[i].fetch({ withRelated: 'goal'})
 
-		if(routines.models[i].get('fixed_time')) {
+		if(routines.models[i].get('fixed_time') == 'true') {
 			type = 'fixed';
 		} else {
 			type = 'flex'
 		}
-		console.log(i);
-		// console.log(routines.models[i]);
 		routines.models[i].fetch({ withRelated: type})
 		.then(function(routine) {
-			console.log(routine.related(type))
 			availibility[count] = routine.related(type);
-			count++;
-			console.log(count)
-			if (count == routines.length) {
+			countA++;
+			if (countA == routines.length) {
 				response.status(200)
 				.json({error: false, message: "Sucessfuly read data from Database", data: [routines.models, availibility]});
 			}

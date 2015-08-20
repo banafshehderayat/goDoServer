@@ -66,6 +66,7 @@ var Goal = Bookshelf.Model.extend({
 		return this.hasOne(Routine);
 	}
 })
+exports.Goal = Goal;
 
 var Fixed = Bookshelf.Model.extend({
 	tableName: 'fixed_available'
