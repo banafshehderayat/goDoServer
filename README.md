@@ -1,6 +1,6 @@
 API v0.1
 
-## AUTHENTICATION ##
+## AUTHENTICATION
 
 1. Both signing up and login in return a user's token
 2. This token is used to identify which user's information is requested
@@ -21,53 +21,16 @@ all outputs will be returned under the data tag
 
 Anything with a * means that it is optional
 
+Path | HTTP Method| Input | Output 
+-----|------------|-------|-------
+/signup | POST | {email: String , password: String} | {user: JSON , token: String}
+/login | POST | {email: String , password: String} | {user : JSON , token: String}
+/category | GET | {} | {categories: JSON}
+/category | POST | {name: String} | {}
+/category | PUT | {oldName: String, newName: String} | {}
+/categrory | DELETE | {name: String} | {}
 
-1. '/signup'
 
-Create a new user. Returns that user's token
-
-Create:
-	inputs:
-		email: String
-		password: String
-
-	outputs:
-		user: JSON
-		token: String
-
-2. '/login'
-
-Get a user's token
-
-Create:
-	inputs:
-		email: String
-		password: String
-
-	outputs:
-		user: JSON
-		token: String
-
-3. '/category'
-
-A User's category information
-
-Create:
-	inputs:
-		name: String
-
-Read:
-	ouputs:
-		list of all the user's categories: JSON
-
-Update:
-	inputs:
-		oldName: String
-		newName: String
-
-Delete:
-	inputs:
-		name: String
 
 4. '/:category/todos'
 
