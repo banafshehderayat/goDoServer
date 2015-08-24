@@ -9,17 +9,18 @@ API v0.1
 ## ROUTES ##
 
 Every call returns a json object with the following format:
-{
-	error: Bool,
-	message: String,
-	data (optional): JSON,
-	token(optional): String
-}
+
+> {
+>	error: Bool,
+>	message: String,
+>	data (optional): JSON,
+>	token(optional): String
+> }
 
 With the exception of tokens (which will be returned under the token tag),
 all outputs will be returned under the data tag
 
-Anything with a * means that it is optional
+*Anything italicized is an optional feild*
 
 Path | HTTP Method| Input | Output 
 -----|------------|-------|-------
@@ -29,36 +30,12 @@ Path | HTTP Method| Input | Output
 /category | POST | {name: String} | {}
 /category | PUT | {oldName: String, newName: String} | {}
 /categrory | DELETE | {name: String} | {}
+/:category/todos | POST | {name: String , *description: String*, set_time: Boolean, date: String as **yyyy-mm-dd hh:mm:ss+/-<time zone>**} | {}
+/:category/todos | GET | {} | {todos: JSON}
+/:category/todos | PUT | {oldName: String , *newName: String* , *description: String* , *set_time: Boolean* , *date: String as yyyy-mm-dd hh:mm:ss+/-<time zone>*} | {}
+/:category/todos | DELETE | {name: String} | {}
 
-
-
-4. '/:category/todos'
-
-A User's todo information
-
-:category can be any of the user's categories (must already be saved in db) or 'all'.
-Currently only the get and post request is affected by :category (affects todos in the appropriate scope) 
-- Will be changed so everything is in correct scope
-
-Create:
-	inputs:
-		name: String
-		description*: String
-		set_time: Boolean
-		date: String formatted as 'yyyy-mm-dd hh:mm:ss+/-<time zone>' e.g. '1995-02-26 09:25:26.056+09'
-
-Read:
-	ouputs:
-		list the user's todos (within scope): JSON
-
-Update:
-	inputs:
-		oldName: String
-		newName*: String
-		description*: String
-		set_time*: Boolean
-		date*: String formatted as 'yyyy-mm-dd hh:mm:ss+/-<time zone>' e.g. '1995-02-26 09:25:26.056+09'
-
-Delete:
-	inputs:
-		name: String
+Extra Notes: 
+ * :category can be any of the user's categories (must already be saved in db) or 'all'.
+	Currently only the get and post request is affected by :category (affects todos in the appropriate scope) 
+	- Will be changed so everything is in correct scope
