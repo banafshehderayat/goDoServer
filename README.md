@@ -30,6 +30,7 @@ Path | HTTP Method| Input | Output
 /category | POST | {name: String} | {}
 /category | PUT | {oldName: String, newName: String} | {}
 /categrory | DELETE | {name: String} | {}
+/all/todos | GET | {} | {todos: JSON}
 /:category/todos | POST | {name: String , *description: String*, set_time: Boolean, date: String as **yyyy-mm-dd hh:mm:ss+/-<time zone>**} | {}
 /:category/todos | GET | {} | {todos: JSON}
 /:category/todos | PUT | {oldName: String , *newName: String* , *description: String* , *set_time: Boolean* , *date: String as yyyy-mm-dd hh:mm:ss+/-<time zone>*} | {}
