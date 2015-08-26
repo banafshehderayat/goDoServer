@@ -22,20 +22,34 @@ all outputs will be returned under the data tag
 
 *Anything italicized is an optional feild*
 
-Path | HTTP Method| Input | Output 
------|------------|-------|-------
-/signup | POST | {email: String , password: String} | {user: JSON , token: String}
-/login | POST | {email: String , password: String} | {user : JSON , token: String}
-/category | GET | {} | {categories: JSON}
-/category | POST | {name: String} | {}
-/category | PUT | {oldName: String, newName: String} | {}
-/categrory | DELETE | {name: String} | {}
-/:category/todos | POST | {name: String , *description: String*, set_time: Boolean, date: String as **yyyy-mm-dd hh:mm:ss+/-<time zone>**} | {}
-/:category/todos | GET | {} | {todos: JSON}
-/:category/todos | PUT | {oldName: String , *newName: String* , *description: String* , *set_time: Boolean* , *date: String as yyyy-mm-dd hh:mm:ss+/-<time zone>*} | {}
-/:category/todos | DELETE | {name: String} | {}
+Path | HTTP Method| Input Data | Output Data | Status Success | Status Error 
+-----|------------|------------|-------------|----------------|-------------
+/signup | POST | {email: String , password: String} | {user: JSON , token: String} | {201} | {400 , 500}
+/login | POST | {email: String , password: String} | {user : JSON , token: String} | {200} | {400 , 403}
+/category | GET | {} | {categories: JSON} | {200} | {403 , 500}
+/category | POST | {name: String} | {} |  {201} | {403 , 404 , 500}
+/category | PUT | {oldName: String, newName: String} | {} | {200} | {403 , 500}
+/categrory | DELETE | {name: String} | {} |  {200} | {403 , 404 , 500}
+/all/todos | GET | {} | {todos: JSON} | {200} | {403 , 500}
+/:category/todos | GET | {} | {todos: JSON} | {200} | {403 , 500} 
+/:category/todos | POST | {name: String , *description: String*, set_time: Boolean, date: String as **yyyy-mm-dd hh:mm:ss+/-<time zone>**} | {} | {201} | {403 ,  404 , 500}
+/:category/todos | PUT | {oldName: String , *newName: String* , *description: String* , *set_time: Boolean* , *date: String as yyyy-mm-dd hh:mm:ss+/-<time zone>*} | {} | {200} | {403 , 500}
+/:category/todos | DELETE | {name: String} | {} | {200} | {403 , 500}
 
-Extra Notes: 
- * :category can be any of the user's categories (must already be saved in db) or 'all'.
-	Currently only the get and post request is affected by :category (affects todos in the appropriate scope) 
-	- Will be changed so everything is in correct scope
+Status # | Meaning
+---------|--------
+2**  | Success
+200 | Ok
+201 | Created
+3** | Redirection
+4** | Client Error
+400 | Bad Request
+401 | Unauthorized
+403 | Forbidden
+404 | Not Found
+418 | Im a teapot
+5** | Server Error
+500 | Internal Server Error
+
+
+
