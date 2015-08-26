@@ -20,7 +20,7 @@ Every call returns a json object with the following format:
 With the exception of tokens (which will be returned under the token tag),
 all outputs will be returned under the data tag
 
-*Anything italicized is an optional feild*
+*Anything italicized is an optional field*
 
 Path | HTTP Method| Input Data | Output Data | Status Success | Status Error 
 -----|------------|------------|-------------|----------------|-------------
@@ -50,6 +50,4 @@ Status # | Meaning
 418 | Im a teapot
 5** | Server Error
 500 | Internal Server Error
-
-
 
