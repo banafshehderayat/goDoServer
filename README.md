@@ -20,6 +20,8 @@ Every call returns a json object with the following format:
 With the exception of tokens (which will be returned under the token tag),
 all outputs will be returned under the data tag
 
+Default URL that goes before every path is: http://localhost:8080/
+
 *Anything italicized is an optional field*
 
 Path | HTTP Method| Input Data | Output Data | Status Success | Status Error 
