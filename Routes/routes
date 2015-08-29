@@ -222,21 +222,14 @@ router.route('/categories')
 		models.Category.forge({name: request.body.name, user_id: request.user.get('id')})
 		.fetch({ withRelated: ['todos']})
 		.then(function(category) {
-			var todos = category.related('todos').toJSON();
-			for (var i = 0; i < todos.length; i++) {
-				models.Todo.forge({name: todos[i]['name'], user_id: request.user.get('id')})
-				.fetch({required: true})
-				.then(function(todo) {
-					helper.deleteIt(todo, todo.get('name'), response);
-				})
-				.catch(function(error) {
-					response.status(404)
-					.json({error: true, message: "ERROR: Database query failed: " + error});
-				});
+			if (category) {
+				var toDelete = category.related('todos').models;
+				toDelete.push(category);
+				helper.deleteIt(toDelete, request.body.name, false, response);
+			} else {
+				response.status(404)
+				.json({error: true, message: "ERROR: " + request.body.name + " not found in Database: "});
 			}
-			helper.deleteIt(category, request.body.name, response);
-			response.status(200)
-			.json({error: false, message: "Successfully deleted " + request.body.name});
 		})
 		.catch(function(error) {
 			response.status(404)
@@ -250,19 +243,31 @@ router.route('/:category/todos')
 	.all(auth, function(request, response, next) {
 		request.category_name = request.params.category;
 		models.Category.forge({name: request.category_name, user_id: request.user.get('id')})
-		.fetch({require: true})
+		.fetch()
 		.then(function(category){
-			request.categoryID = category.get('id');
-			next();
+			if (category) {
+				request.categoryID = category.get('id');
+				next();
+			} else if (request.category_name == 'all') {
+				next();
+			} else {
+				response.status(404)
+				.json({error: true, message: "ERROR: " + request.category_name + " not found in Database: " + error});
+			}
 		})
 		.catch(function(error) {
-			response.status(404)
-			.json({error: true, message: "ERROR: " + request.category_name + " not found in Database: " + error});
+			response.status(500)
+			.json({error: true, message: "ERROR: Database query failed: " + error});
 		});
 	})
 
 	.post(function(request,response) {
 		// create new todo
+		if (!request.categoryID) {
+			response.status(401)
+			.json({error: true, message: "ERROR: Must provide category to create a todo"});
+		}
+
 		console.log(request.categoryID);
 		var newToDo = new models.Todo({
 			name: request.body.name,
@@ -288,9 +293,14 @@ router.route('/:category/todos')
 	})
 
 	.put(function(request, response) {
+		if (!request.categoryID) {
+			response.status(401)
+			.json({error: true, message: "ERROR: Must provide category to update a todo"});
+		}
 		models.Todo.forge({
 			name: request.body.oldName,
-			user_id: request.user.get('id')
+			user_id: request.user.get('id'),
+			category_id: request.categoryID
 		})
 		.fetch()
 		.then(function(oldTodo) {
@@ -334,12 +344,14 @@ router.route('/:category/todos')
 	})
 
 	.delete(function(request, response) {
-		models.Todo.forge({name: request.body.name, user_id: request.user.get('id')})
+		if (!request.categoryID) {
+			response.status(401)
+			.json({error: true, message: "ERROR: Must provide category to insert todo into"});
+		}
+		models.Todo.forge({name: request.body.name, user_id: request.user.get('id'), category_id: request.categoryID})
 		.fetch()
 		.then(function(todo) {
-			helper.deleteIt(todo, request.body.name, response);
-			response.status(200)
-			.json({error: false, message: "Successfully deleted " + request.body.name});
+			helper.deleteIt([todo], request.body.name, true, response);
 		})
 		.catch(function(error) {
 			response.status(404)
@@ -351,28 +363,41 @@ router.route('/:category/todos')
 router.route('/:category/routines')
 
 	.all(auth, function(request, response, next) {
+
 		request.category_name = request.params.category;
 		models.Category.forge({name: request.category_name, user_id: request.user.get('id')})
-		.fetch({require: true})
+		.fetch()
 		.then(function(category){
-			request.categoryID = category.get('id');
-			next();
+			if (category) {
+				request.categoryID = category.get('id');
+				next();
+			} else if (request.category_name == 'all') {
+				next();
+			} else {
+				response.status(404)
+				.json({error: true, message: "ERROR: " + request.category_name + " not found in Database: " + error});
+			}
 		})
 		.catch(function(error) {
-			response.status(404)
-			.json({error: true, message: "ERROR: " + request.category_name + " not found in Database: " + error});
+			response.status(500)
+			.json({error: true, message: "ERROR: Database query failed: " + error});
 		});
 	})
 
 	.post(function(request,response) {
 		// create new todo
+		if (!request.categoryID) {
+			response.status(401)
+			.json({error: true, message: "ERROR: Must provide category to create a routine"});
+		}
+
 		var newRoutine = new models.Routine({
 			name: request.body.name,
 			description: request.body.description,
-			fixed_time: request.body.fixedTime,
-			has_goal: request.body.hasGoal,
+			fixed_time: request.body.fixed_time,
+			has_goal: request.body.has_goal,
 			user_id: request.user.get('id'),
-			category_id: request.categoryID,
+			category_id: request.categoryID
 		});
 
 		newRoutine.fetch()
@@ -386,63 +411,130 @@ router.route('/:category/routines')
 	})
 
 	.get(function(request, response) {
+		console.log('????')
 		helper.getIt(request.user, request.category_name, 'routines', response);
 	})
 
 	.put(function(request, response) {
 
-		models.Todo.forge({
+		if (!request.categoryID) {
+			response.status(401)
+			.json({error: true, message: "ERROR: Must provide category to update a routine"});
+		}
+
+		models.Routine.forge({
 			name: request.body.oldName,
-			user_id: request.user.get('id')
+			user_id: request.user.get('id'),
+			category_id: request.categoryID
 		})
 		.fetch()
-		.then(function(oldTodo) {
-			if (!oldTodo) {
+		.then(function(oldRoutine) {
+			if (!oldRoutine) {
 				 response.status(404)
 				 .json({error: true, message: "ERROR: " + request.body.oldName + " not found in Database: "});
 			}
-			models.Todo.forge({
+			models.Routine.forge({
 				name: request.body.newName,
-				user_id: request.user.get('id')
+				user_id: request.user.get('id'),
+				category_id: request.categoryID
 			})
 			.fetch()
-			.then(function(newTodo) {
-				if(newTodo) {
+			.then(function(newRoutine) {
+				if(newRoutine) {
 					response.status(400)
 					.json({error: true, message: "ERROR: todo already exists"});
 				} else {
-					oldTodo.save({
-						name: request.body.newName || oldTodo.get('name'),
-						description: request.body.description || oldTodo.get('description'),
-						set_time: request.body.set_time || oldTodo.get('set_time'),
-						date: request.body.date || oldTodo.get('date'),
-						category_id: categoryId || oldTodo.get('category_id'),
-						user_id: request.user.get('id') || oldTodo.get('user_id')
-					})
-					.then(function() {
-						response.status(200)
-						.json({error: false, message: "Successfully updated " + request.body.oldName + " to " + request.body.newName});
+
+					var type = null;
+					if(oldRoutine.get('fixed_time') == true) {
+						type = 'fixed';
+					} else {
+						type = 'flex'
+					}
+					oldRoutine.fetch({withRelated: [type, 'goal']})
+					.then(function(fullRoutine) {
+						fullRoutine.save({
+							name: request.body.newName || oldRoutine.get('name'),
+							description: request.body.description || oldRoutine.get('description'),
+							fixed_time: request.body.fixed_time || oldRoutine.get('fixed_time'),
+							has_goal: request.body.has_goal || oldRoutine.get('has_goal'),
+							user_id: request.user.get('id') || oldRoutine.get('user_id'),
+							category_id: request.categoryID
+						})
+						.then(function() {
+							console.log(fullRoutine.related(type));
+							if (fullRoutine.get('fixed_time')) {
+								console.log(1)
+								fullRoutine.related(type).save({
+									days: request.body.days || fullRoutine.related(type).get('days'),
+									time: request.body.time || fullRoutine.related(type).get('time')
+								}).then(function() {
+									console.log('a')
+									if (fullRoutine.get('has_goal')) {
+										helper.updateGoal(fullRoutine.related('goal'), request, response);
+									} else {
+										response.status(200)
+										.json({error: false, message: "Successfully updated " + request.body.oldName + " to " + request.body.newName});
+									}
+								})
+								.catch(function(error) {
+									response.status(500)
+									.json({error: true, message: "ERROR: Unable to save update for availibility in Database: " + error});
+								});
+							} else {
+								console.log(2)
+								fullRoutine.related(type).save({
+									days: request.body.days || fullRoutine.related(type).get('days'),
+									length: request.body.length || fullRoutine.related(type).get('length')
+								}).then(function() {
+									console.log('b')
+									if (fullRoutine.get('has_goal')) {
+										helper.updateGoal(fullRoutine.related('goal'), request, response);
+									} else {
+										response.status(200)
+										.json({error: false, message: "Successfully updated " + request.body.oldName + " to " + request.body.newName});
+									}
+								})
+								.catch(function(error) {
+									response.status(500)
+									.json({error: true, message: "ERROR: Unable to save update for availibility in Database: " + error});
+								});
+							}
+						})
+						.catch(function(error) {
+							response.status(500)
+							.json({error: true, message: "ERROR: Unable to save update for " + request.body.oldName + " in Database: " + error});
+						});
 					})
 					.catch(function(error) {
 						response.status(500)
-						.json({error: true, message: "ERROR: Unable to save update " + request.body.oldName + " in Database: " + error});
+						.json({error: true, message: "ERROR: Database query failed: " + error});
 					});
 				}
 			})
 		})
 		.catch(function(error) {
-			response.status(404)
+			response.status(500)
 			.json({error: true, message: "ERROR: Database query failed: " + error});
 		});
 	})
 
 	.delete(function(request, response) {
-		models.Todo.forge({name: request.body.name, user_id: request.user.get('id')})
+		models.Routine.forge({name: request.body.name, user_id: request.user.get('id'), category_id: request.categoryID})
 		.fetch()
-		.then(function(todo) {
-			helper.deleteIt(todo, request.body.name, response);
-			response.status(200)
-			.json({error: false, message: "Successfully deleted " + request.body.name});
+		.then(function(routine) {
+			var type = null;
+			if(routine.get('fixed_time') == true) {
+				type = 'fixed';
+			} else {
+				type = 'flex'
+			}
+			routine.fetch({withRelated: [type, 'goal']})
+			.then(function(fullRoutine) {
+				var toDelete = [fullRoutine].concat(fullRoutine.related(type), fullRoutine.related('goal'))
+
+				helper.deleteIt(toDelete, request.body.name, false, response)
+			})
 		})
 		.catch(function(error) {
 			response.status(404)

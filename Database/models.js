@@ -46,11 +46,11 @@ var Routine = Bookshelf.Model.extend({
 	tableName: 'routines',
 
 	fixed: function() {
-		return this.hasMany(Fixed);
+		return this.hasOne(Fixed);
 	},
 
 	flex: function() {
-		return this.hasMany(Flex);
+		return this.hasOne(Flex);
 	},
 
 	goal: function() {

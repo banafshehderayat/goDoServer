@@ -23,7 +23,7 @@ var getIt = function(_user, _name, _type, response) {
 						response.status(200)
 						.json({error: false, message: "Sucessfuly read data from Database", data: category.related('todos')});
 					} else if (_type == 'routines') {
-						get_availibility(category, response);
+						getAvailibility(category, response);
 					}
 				})
 				.catch(function(error){
@@ -55,6 +55,7 @@ var saveIt = function(_newItem, _existingItem, _type, request, response) {
 				response.status(201)
 				.json({error: false, message: "Sucessfully created " + _newItem.get('name') + " in Database"});
 			} else if (_type == 'routine') {
+				console.log(newAvailibility)
 				newAvailibility(_newItem.get('id'), request, response);
 			}
 		})
@@ -68,44 +69,64 @@ var saveIt = function(_newItem, _existingItem, _type, request, response) {
 exports.saveIt = saveIt;
 
 
-var deleteIt = function(_existingItem, _name, response) {
-	if (!_existingItem) {
-		response.status(404)
-		.json({error: true, message: "ERROR: " + _name + " not found in Database: "});
-	} else {
-		_existingItem.destroy()
-		.then(function() {
-			return true
-		})
-		.catch(function(error) {
-			response.status(500)
-			.json({error: true, message: "ERROR: Unable to delete " + _name + " from Database: " + error});
-		});
+var deleteIt = function(_existingItems, _name, _mustExist, response) {
+	count = 0;
+	for (var i=0; i < _existingItems.length; i++) {
+		if (!_existingItems[i]) {
+			if (_mustExist) {
+				response.status(404)
+				.json({error: true, message: "ERROR: " + _name + " not found in Database: "});
+			} else {
+				count++;
+				console.log("item undefined")
+				if (count == _existingItems.length) {
+					console.log("HERE");
+					response.status(200)
+					.json({error: false, message: "Successfully deleted " + _name});
+				}
+			}
+		} else {
+			_existingItems[i].destroy()
+			.then(function() {
+				count++;
+				console.log(count + ' of ' + _existingItems.length)
+				if (count == _existingItems.length) {
+					console.log("HERE");
+					response.status(200)
+					.json({error: false, message: "Successfully deleted " + _name});
+				}
+			})
+			.catch(function(error) {
+				response.status(500)
+				.json({error: true, message: "ERROR: Unable to delete " + _name + " from Database: " + error});
+			});
+		}
 	}
 }
 
 exports.deleteIt = deleteIt;
 
 var newAvailibility = function(_routineID, request, response) {
+	var newAvail = null;
+	console.log(request.body.fixed_time);
 	if (request.body.fixed_time == 'true') {
 		// the availibility for a routine if fixed
-		newAvailibility = new models.Fixed({
+		newAvail = new models.Fixed({
 			routine_id: _routineID,
 			days: request.body.days,
 			time: request.body.time
 		});
 	}
 	else {
-
-		newAvailibility = new models.Flex({
+		newAvail = new models.Flex({
 			routine_id: _routineID,
 			days: request.body.days,
 			length: request.body.length
 		});
 	}
-	newAvailibility.save()
+	newAvail.save()
 	.then(function() {
-		if (request.body.hasGoal == 'true') {
+		if (request.body.has_goal == 'true') {
 			newGoal(_routineID, request, response);
 		} else {
 			response.status(201)
@@ -128,14 +149,13 @@ var newGoal = function(_routineID, request, response) {
 	})
 	newGoal.save()
 	.then(function(){
-		// CHECK THE CATEGORY !!!!!!!!!
 		models.Routine.forge({name: request.body.name, user_id: request.user.get('id'), category_id: request.categoryID})
 		.fetch({required: true})
 		.then(function(routine){
 			routine.save({goal_id: newGoal.get('id')}, {patch: true})
 			.then(function() {
 				response.status(201)
-				.json({error: false, message: "Sucess123fully created in Database"});
+				.json({error: false, message: "Sucessfully created in Database"});
 			})
 			.catch(function(error) {
 				response.status(500)
@@ -149,34 +169,57 @@ var newGoal = function(_routineID, request, response) {
 	});
 }
 
-var get_availibility = function(category, response) {
+var updateGoal = function(goal, request, response) {
+
+	goal.save({
+		number: request.body.number || goal.get('number'),
+		units: request.body.units || goal.get('units'),
+		cycle: request.body.cycle || goal.get('cycle')
+	})
+	.then(function() {
+		response.status(200)
+		.json({error: false, message: "Successfully updated " + request.body.oldName + " to " + request.body.newName});
+	})
+	.catch(function(error) {
+		response.status(500)
+		.json({error: true, message: "ERROR: Unable to save update for " + request.body.oldName + " in Database: " + error});
+	});
+}
+
+exports.updateGoal = updateGoal
+
+var getAvailibility = function(category, response) {
 	var routines = category.related('routines');
 	var availibility = []
 	var goals = []
 	var type = null
 	var _error = null
-	var countA = 0
+	var count = 0
+	if (routines.length == 0) {
+		response.status(200)
+		.json({error: false, message: "Sucessfully read data from Database", data: []})
+	}
 	for (var i=0; i < routines.length; i++) {
-		// GET GOALS
-		// if (routines.models[i].fetch({ withRelated: 'goal'})
-
-		if(routines.models[i].get('fixed_time') == 'true') {
+		if(routines.models[i].get('fixed_time')) {
 			type = 'fixed';
 		} else {
 			type = 'flex'
 		}
-		routines.models[i].fetch({ withRelated: type})
+		console.log(type)
+		routines.models[i].fetch({ withRelated: [type, 'goal']})
 		.then(function(routine) {
-			availibility[count] = routine.related(type);
-			countA++;
-			if (countA == routines.length) {
+			// availibility[count] = routine.related(type);
+			// goals[count] = routine.related('goal');
+			count++;
+			console.log(count + " of " + routines.length)
+			if (count == routines.length) {
 				response.status(200)
-				.json({error: false, message: "Sucessfuly read data from Database", data: [routines.models, availibility]});
+				.json({error: false, message: "Sucessfuly read data from Database", data: routines.models});
 			}
 		})
 		.catch(function(error) {
 			response.status(500)
-			.json({error: true, message: "ERROR*: Database query failed: " + error});
+			.json({error: true, message: "ERROR: Database query failed: " + error});
 		});
 	}
 }
