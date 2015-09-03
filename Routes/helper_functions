@@ -4,9 +4,13 @@ var models = require('../Database/models')
 var getIt = function(_user, _name, _type, response) {
 	if (_name == 'all') {
 		_user.fetch({ withRelated: [_type]})
-		.then(function(category) {
-			response.status(200)
-			.json({error: false, message: "Sucessfuly read data from Database", data: category.related(_type)});
+		.then(function(user) {
+			if (_type == 'todos') {
+				response.status(200)
+				.json({error: false, message: "Sucessfuly read data from Database", data: user.related(_type)});
+			} else if (_type == 'routines') {
+				getAvailibility(user, response);
+			}
 		})
 		.catch(function(error){
 			response.status(500)
@@ -55,7 +59,6 @@ var saveIt = function(_newItem, _existingItem, _type, request, response) {
 				response.status(201)
 				.json({error: false, message: "Sucessfully created " + _newItem.get('name') + " in Database"});
 			} else if (_type == 'routine') {
-				console.log(newAvailibility)
 				newAvailibility(_newItem.get('id'), request, response);
 			}
 		})
@@ -78,9 +81,7 @@ var deleteIt = function(_existingItems, _name, _mustExist, response) {
 				.json({error: true, message: "ERROR: " + _name + " not found in Database: "});
 			} else {
 				count++;
-				console.log("item undefined")
 				if (count == _existingItems.length) {
-					console.log("HERE");
 					response.status(200)
 					.json({error: false, message: "Successfully deleted " + _name});
 				}
@@ -89,9 +90,7 @@ var deleteIt = function(_existingItems, _name, _mustExist, response) {
 			_existingItems[i].destroy()
 			.then(function() {
 				count++;
-				console.log(count + ' of ' + _existingItems.length)
 				if (count == _existingItems.length) {
-					console.log("HERE");
 					response.status(200)
 					.json({error: false, message: "Successfully deleted " + _name});
 				}
@@ -108,7 +107,6 @@ exports.deleteIt = deleteIt;
 
 var newAvailibility = function(_routineID, request, response) {
 	var newAvail = null;
-	console.log(request.body.fixed_time);
 	if (request.body.fixed_time == 'true') {
 		// the availibility for a routine if fixed
 		newAvail = new models.Fixed({
@@ -169,24 +167,52 @@ var newGoal = function(_routineID, request, response) {
 	});
 }
 
-var updateGoal = function(goal, request, response) {
+exports.newGoal = newGoal;
 
-	goal.save({
-		number: request.body.number || goal.get('number'),
-		units: request.body.units || goal.get('units'),
-		cycle: request.body.cycle || goal.get('cycle')
-	})
-	.then(function() {
+var updateGoal = function(had_goal, newRoutine, request, response) {
+
+	var goal = newRoutine.related('goal');
+	if (had_goal && request.body.has_goal) {
+		goal.save({
+			number: request.body.number || goal.get('number'),
+			units: request.body.units || goal.get('units'),
+			cycle: request.body.cycle || goal.get('cycle')
+		})
+		.then(function() {
+			response.status(200)
+			.json({error: false, message: "Successfully updated " + request.body.oldName + " to " + request.body.newName});
+		})
+		.catch(function(error) {
+			response.status(500)
+			.json({error: true, message: "ERROR: Unable to save update for " + request.body.oldName + " in Database: " + error});
+		});
+	} else if (!had_goal && request.body.has_goal) {
+		request.body.name = request.body.newName;
+		newGoal(newRoutine.get('id'), request, response);
+	} else if (had_goal && !request.body.has_goal) {
+		goal.destroy()
+		.then(function() {
+			newRoutine.save({goal_id: null}, {patch: true})
+			.then(function() {
+				response.status(201)
+				.json({error: false, message: "Successfully updated " + request.body.oldName + " to " + request.body.newName});
+			})
+			.catch(function(error) {
+				response.status(500)
+				.json({error: true, message: "ERROR: Database query failed: " + error});
+			});
+		})
+		.catch(function(error) {
+			response.status(500)
+			.json({error: true, message: "ERROR: Database query failed: " + error});
+		});
+	} else {
 		response.status(200)
 		.json({error: false, message: "Successfully updated " + request.body.oldName + " to " + request.body.newName});
-	})
-	.catch(function(error) {
-		response.status(500)
-		.json({error: true, message: "ERROR: Unable to save update for " + request.body.oldName + " in Database: " + error});
-	});
+	}
 }
 
-exports.updateGoal = updateGoal
+exports.updateGoal = updateGoal;
 
 var getAvailibility = function(category, response) {
 	var routines = category.related('routines');
@@ -205,13 +231,11 @@ var getAvailibility = function(category, response) {
 		} else {
 			type = 'flex'
 		}
-		console.log(type)
 		routines.models[i].fetch({ withRelated: [type, 'goal']})
 		.then(function(routine) {
 			// availibility[count] = routine.related(type);
 			// goals[count] = routine.related('goal');
 			count++;
-			console.log(count + " of " + routines.length)
 			if (count == routines.length) {
 				response.status(200)
 				.json({error: false, message: "Sucessfuly read data from Database", data: routines.models});

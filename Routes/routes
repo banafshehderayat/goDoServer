@@ -213,7 +213,7 @@ router.route('/categories')
 			})
 		})
 		.catch(function(error) {
-			response.status(404)
+			response.status(500)
 			.json({error: true, message: "ERROR: Database query failed: " + error});
 		});
 	})
@@ -268,7 +268,6 @@ router.route('/:category/todos')
 			.json({error: true, message: "ERROR: Must provide category to create a todo"});
 		}
 
-		console.log(request.categoryID);
 		var newToDo = new models.Todo({
 			name: request.body.name,
 			description: request.body.description,
@@ -411,7 +410,6 @@ router.route('/:category/routines')
 	})
 
 	.get(function(request, response) {
-		console.log('????')
 		helper.getIt(request.user, request.category_name, 'routines', response);
 	})
 
@@ -440,16 +438,16 @@ router.route('/:category/routines')
 			})
 			.fetch()
 			.then(function(newRoutine) {
-				if(newRoutine) {
+				if(newRoutine && request.body.oldName != request.body.newName) {
 					response.status(400)
 					.json({error: true, message: "ERROR: todo already exists"});
 				} else {
-
+					var had_goal = oldRoutine.get('has_goal');
 					var type = null;
 					if(oldRoutine.get('fixed_time') == true) {
 						type = 'fixed';
 					} else {
-						type = 'flex'
+						type = 'flex';
 					}
 					oldRoutine.fetch({withRelated: [type, 'goal']})
 					.then(function(fullRoutine) {
@@ -462,38 +460,23 @@ router.route('/:category/routines')
 							category_id: request.categoryID
 						})
 						.then(function() {
-							console.log(fullRoutine.related(type));
 							if (fullRoutine.get('fixed_time')) {
-								console.log(1)
 								fullRoutine.related(type).save({
 									days: request.body.days || fullRoutine.related(type).get('days'),
 									time: request.body.time || fullRoutine.related(type).get('time')
 								}).then(function() {
-									console.log('a')
-									if (fullRoutine.get('has_goal')) {
-										helper.updateGoal(fullRoutine.related('goal'), request, response);
-									} else {
-										response.status(200)
-										.json({error: false, message: "Successfully updated " + request.body.oldName + " to " + request.body.newName});
-									}
+									helper.updateGoal(had_goal, fullRoutine, request, response);
 								})
 								.catch(function(error) {
 									response.status(500)
 									.json({error: true, message: "ERROR: Unable to save update for availibility in Database: " + error});
 								});
 							} else {
-								console.log(2)
 								fullRoutine.related(type).save({
 									days: request.body.days || fullRoutine.related(type).get('days'),
 									length: request.body.length || fullRoutine.related(type).get('length')
 								}).then(function() {
-									console.log('b')
-									if (fullRoutine.get('has_goal')) {
-										helper.updateGoal(fullRoutine.related('goal'), request, response);
-									} else {
-										response.status(200)
-										.json({error: false, message: "Successfully updated " + request.body.oldName + " to " + request.body.newName});
-									}
+									helper.updateGoal(oldRoutine, fullRoutine, request, response);
 								})
 								.catch(function(error) {
 									response.status(500)
