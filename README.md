@@ -24,7 +24,7 @@ Default URL that goes before every path is: http://localhost:8080/
 
 *Anything italicized is an optional field*
 
-Path | HTTP Method| Input Data | Output Data | Status Success | Status Error 
+Path | HTTP Method| Input Data | Output Data | Status Success | Status Error
 -----|------------|------------|-------------|----------------|-------------
 /signup | POST | {email: String , password: String} | {user: JSON , token: String} | {201} | {400 , 500}
 /login | POST | {email: String , password: String} | {user : JSON , token: String} | {200} | {400 , 403}
@@ -32,11 +32,18 @@ Path | HTTP Method| Input Data | Output Data | Status Success | Status Error
 /category | POST | {name: String} | {} |  {201} | {403 , 404 , 500}
 /category | PUT | {oldName: String, newName: String} | {} | {200} | {403 , 500}
 /categrory | DELETE | {name: String} | {} |  {200} | {403 , 404 , 500}
-/all/todos | GET | {} | {todos: JSON} | {200} | {403 , 500}
-/:category/todos | GET | {} | {todos: JSON} | {200} | {403 , 500} 
+/all/todos | GET | {} | {todos: JSON} | {200} | {403 , 404, 500}
+/:category/todos | GET | {} | {todos: JSON} | {200} | {403 , 404, 500}
 /:category/todos | POST | {name: String , *description: String*, set_time: Boolean, date: String as **yyyy-mm-dd hh:mm:ss+/-<time zone>**} | {} | {201} | {403 ,  404 , 500}
-/:category/todos | PUT | {oldName: String , *newName: String* , *description: String* , *set_time: Boolean* , *date: String as yyyy-mm-dd hh:mm:ss+/-<time zone>*} | {} | {200} | {403 , 500}
-/:category/todos | DELETE | {name: String} | {} | {200} | {403 , 500}
+/:category/todos | PUT | {oldName: String , newName: String , *description: String* , *set_time: Boolean* , *date: String as yyyy-mm-dd hh:mm:ss+/-<time zone>*} | {} | {200} | {403 , 404, 500}
+/:category/todos | DELETE | {name: String} | {} | {200} | {403, 404, 500}
+/all/routines | GET | {} | {routines: JSON} | {200} | {403, 404, 500}
+/:category/routines | GET | {} | {routines: JSON} | {200} | {403 , 404, 500}
+/:category/routines | POST | {name: String , *description: String*, has_goal: Boolean, fixed_time: Boolean, days: Integer (where 1 is Mon 2 is Tues..., if fixed_time { time: String as **hh:mm:ss** } else { length: Float }, if has_goal { number: Float, units: String, Cycle: Integer (in days) }} | {} | {201} | {403 ,  404 , 500}
+/:category/routines | PUT | {oldName: String , newName: String , *description: String, has_goal: Boolean, fixed_time: Boolean, days: Integer (where 1 is Mon 2 is Tues..., if fixed_time { time: String as **hh:mm:ss** } else { length: Float }, if has_goal { number: Float, units: String, Cycle: Integer (in days) }*} | {} | {200} | {403 , 404, 500}
+/:category/routines | DELETE | {name: String} | {} | {200} | {403, 404, 500}
+
+Note: when updating both newName and oldName are required. To keep the same name, make newName == oldName
 
 Status # | Meaning
 ---------|--------

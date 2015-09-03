@@ -38,7 +38,7 @@ var Schema = {
 	fixed_available: {
 		id: {type: 'increments', nullable: false, primary: true},
 		routine_id: {type: 'integer', nullable: false, unsigned: true},
-		// days stored as an in where mon=1, tues=2...sun=7
+		// days stored as an int where mon=1, tues=2...sun=7
 		days: {type: 'integer', nullable: true, unsigned: true},
 		time: {type: 'time', nullable: true}
 	},

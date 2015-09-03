@@ -1,0 +1,8 @@
+TODOS
+
+1. Update and delete for users
+2. Add billing data to users
+3. Ensure that email is real email for users
+4. Encrypt important data
+5. Add Groups? (talk to arik)
+6. Add '/me' route which returns everything for a given user

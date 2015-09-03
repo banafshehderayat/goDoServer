@@ -233,8 +233,6 @@ var getAvailibility = function(category, response) {
 		}
 		routines.models[i].fetch({ withRelated: [type, 'goal']})
 		.then(function(routine) {
-			// availibility[count] = routine.related(type);
-			// goals[count] = routine.related('goal');
 			count++;
 			if (count == routines.length) {
 				response.status(200)

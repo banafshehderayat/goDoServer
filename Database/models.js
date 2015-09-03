@@ -1,5 +1,6 @@
 var knex = require('knex')({
 	client: 'pg',
+	// move this somewhere else
 	connection: "postgres://GoDoAdmin:cuphelmetwrappersilicon@127.0.0.1:5432/GoDo"
 });
 exports.knex = knex;

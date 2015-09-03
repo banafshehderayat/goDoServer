@@ -7,10 +7,12 @@ var helper = require('./helper_functions');
 // MODELS
 var models = require('../Database/models')
 
-// COLLECTIONS
+// COLLECTIONS -- Currently not used
 var collections = require('../Database/collections');
 
 //USEFEL MIDDLEWARE
+
+//verifies authentication token, returns error if no token, or invalid token
 var auth = function(request, response, next) {
 	var bearerToken;
 	var bearerHeader = request.headers["authorization"];
@@ -38,23 +40,6 @@ var auth = function(request, response, next) {
 	}
 }
 
-//ROUTES - FIX LATER
-router.get('/', function(request,response) {
-	if (request.user){
-		response.json(request.user.get('email') + " is signed in");
-	} else {
-		collections.Users.forge()
-		.fetch()
-		.then (function (users) {
-			response.status(200).json(users);
-		})
-		.catch(function () {
-			response.status(400)
-			.json("ERROR: can't find users");
-		});
-	}
-})
-
 // SIGN UP ROUTES
 router.route('/signup')
 
@@ -62,6 +47,7 @@ router.route('/signup')
 		response.sendFile(path.join(__dirname, '../', 'public/index.html'));
 	})
 
+	// creates new user
 	.post(function(request,response,next) {
 		if (!request.body.email) {
 			response.status(400)
@@ -147,6 +133,7 @@ router.route('/in')
 // CRUD FOR CATEGORIES - retrieves data from user currently signed in
 router.route('/categories')
 
+	// check token
 	.all(auth)
 
 	.post(function(request,response) {
@@ -303,7 +290,7 @@ router.route('/:category/todos')
 		})
 		.fetch()
 		.then(function(oldTodo) {
-			if (!oldTodo) {
+			if (!oldTodo  && request.body.oldName != request.body.newName) {
 				 response.status(404)
 				 .json({error: true, message: "ERROR: " + request.body.oldName + " not found in Database: "});
 			}
